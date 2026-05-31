@@ -1,846 +1,835 @@
--- Skidded Hub (Not actually skid ok)
-
-local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/shlexware/Orion/main/source')))()
-local Window = OrionLib:MakeWindow({
-    Name = "Skidded Hub (Not actually skid ok)",
-    HidePremium = false,
-    SaveConfig = true,
-    ConfigFolder = "SkiddedHubConfig",
-    IntroEnabled = true,
-    IntroText = "Skidded Hub"
-})
+local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Orion/main/source"))()
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local RootPart = Character:WaitForChild("HumanoidRootPart")
 
-local function getCharacter(plr)
-    return plr and plr.Character
-end
+local Window = OrionLib:MakeWindow({
+    Name = "Skidded Hub (Not actually skid ok)",
+    HidePremium = false,
+    SaveConfig = false,
+    IntroEnabled = true,
+    IntroText = "Skidded Hub",
+})
 
-local function getHRP(plr)
-    local char = getCharacter(plr)
-    return char and char:FindFirstChild("HumanoidRootPart")
-end
+OrionLib:MakeNotification({
+    Name = "Skidded Hub Loaded",
+    Content = "Welcome to Skidded Hub (Not actually skid ok). Enjoy your features!",
+    Image = "rbxassetid://4483345998",
+    Time = 5
+})
 
-local function getHumanoid(plr)
-    local char = getCharacter(plr)
-    return char and char:FindFirstChildOfClass("Humanoid")
-end
+local GeneratorTab = Window:MakeTab({Name = "Generator", Icon = "rbxassetid://4483345998", PremiumOnly = false})
+local ESPTab = Window:MakeTab({Name = "ESP", Icon = "rbxassetid://4483345998", PremiumOnly = false})
+local AimbotTab = Window:MakeTab({Name = "Aimbot", Icon = "rbxassetid://4483345998", PremiumOnly = false})
+local MovementTab = Window:MakeTab({Name = "Movement", Icon = "rbxassetid://4483345998", PremiumOnly = false})
+local MiscTab = Window:MakeTab({Name = "Misc", Icon = "rbxassetid://4483345998", PremiumOnly = false})
 
-local Variables = {
-    AutoFixEnabled = false,
-    FixTime = 3,
-    KillerESP = false,
-    PlayerESP = false,
+local Settings = {
+    AutoFixGen = false,
+    FixTime = 1,
+    ESPKiller = false,
+    ESPPlayers = false,
     InfiniteStamina = false,
     PlayerAimbot = false,
     KillerAimbot = false,
-    AimbotRange = 100,
-    ESPObjects = {},
-    PlayerAimbotConnection = nil,
-    KillerAimbotConnection = nil,
-    StaminaConnection = nil,
-    GeneratorConnection = nil
+    AutoBlock = false,
+    NoClip = false,
+    SpeedBoost = false,
+    SpeedValue = 16,
 }
 
-local ESPFolder = Instance.new("Folder")
-ESPFolder.Name = "SkiddedHub_ESP"
-ESPFolder.Parent = game:GetService("CoreGui")
+local ESPObjects = {}
+local AimbotConnection = nil
+local PlayerAimbotGui = nil
+local KillerAimbotGui = nil
 
-local function createHighlight(plr, color)
-    local char = getCharacter(plr)
-    if not char then return end
-    local highlight = Instance.new("Highlight")
-    highlight.Name = plr.Name .. "_ESP"
-    highlight.FillColor = color
-    highlight.FillTransparency = 0.5
-    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-    highlight.OutlineTransparency = 0
-    highlight.Parent = ESPFolder
-    highlight.Adornee = char
-    table.insert(Variables.ESPObjects, highlight)
-    return highlight
+local function GetCharacterFromPlayer(plr)
+    return plr and plr.Character
 end
 
-local function removeESP(plr)
-    for i, obj in ipairs(Variables.ESPObjects) do
-        if obj.Name == plr.Name .. "_ESP" then
-            obj:Destroy()
-            table.remove(Variables.ESPObjects, i)
-            break
+local function GetRootFromCharacter(char)
+    return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+local function GetHumanoidFromCharacter(char)
+    return char and char:FindFirstChildOfClass("Humanoid")
+end
+
+local function IsKillerTeam()
+    local team = LocalPlayer.Team
+    if team then
+        local teamName = team.Name:lower()
+        if teamName:find("killer") or teamName:find("slasher") or teamName:find("murderer") then
+            return true
         end
     end
+    return false
 end
 
-local function clearAllESP()
-    for _, obj in ipairs(Variables.ESPObjects) do
-        obj:Destroy()
-    end
-    Variables.ESPObjects = {}
+local function IsSurvivorTeam()
+    return not IsKillerTeam()
 end
 
-local function updateESP()
-    clearAllESP()
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and getCharacter(plr) then
-            if Variables.KillerESP then
-                local killerTool = false
-                local char = getCharacter(plr)
-                if char then
-                    for _, tool in ipairs(char:GetChildren()) do
-                        if tool:IsA("Tool") and (tool.Name:lower():find("kill") or tool.Name:lower():find("weapon") or tool.Name:lower():find("sword") or tool.Name:lower():find("axe") or tool.Name:lower():find("knife") or tool.Name:lower():find("slasher")) then
-                            killerTool = true
-                            break
-                        end
-                    end
-                end
-                local backpack = plr:FindFirstChild("Backpack")
-                if backpack then
-                    for _, tool in ipairs(backpack:GetChildren()) do
-                        if tool:IsA("Tool") and (tool.Name:lower():find("kill") or tool.Name:lower():find("weapon") or tool.Name:lower():find("sword") or tool.Name:lower():find("axe") or tool.Name:lower():find("knife") or tool.Name:lower():find("slasher")) then
-                            killerTool = true
-                            break
-                        end
-                    end
-                end
-                if killerTool or plr.TeamColor == BrickColor.new("Really red") or plr.TeamColor == BrickColor.new("Bright red") then
-                    createHighlight(plr, Color3.fromRGB(255, 0, 0))
-                end
-            end
-            if Variables.PlayerESP then
-                local killerTool = false
-                local char = getCharacter(plr)
-                if char then
-                    for _, tool in ipairs(char:GetChildren()) do
-                        if tool:IsA("Tool") and (tool.Name:lower():find("kill") or tool.Name:lower():find("weapon") or tool.Name:lower():find("sword") or tool.Name:lower():find("axe") or tool.Name:lower():find("knife") or tool.Name:lower():find("slasher")) then
-                            killerTool = true
-                            break
-                        end
-                    end
-                end
-                local backpack = plr:FindFirstChild("Backpack")
-                if backpack then
-                    for _, tool in ipairs(backpack:GetChildren()) do
-                        if tool:IsA("Tool") and (tool.Name:lower():find("kill") or tool.Name:lower():find("weapon") or tool.Name:lower():find("sword") or tool.Name:lower():find("axe") or tool.Name:lower():find("knife") or tool.Name:lower():find("slasher")) then
-                            killerTool = true
-                            break
-                        end
-                    end
-                end
-                if not killerTool and plr.TeamColor ~= BrickColor.new("Really red") and plr.TeamColor ~= BrickColor.new("Bright red") then
-                    createHighlight(plr, Color3.fromRGB(0, 255, 0))
-                end
-            end
-        end
-    end
-end
-
-local function findNearbyGenerators()
-    local generators = {}
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("BasePart") and not obj.Parent:FindFirstChildOfClass("Humanoid") then
-            local name = obj.Name:lower()
-            local parentName = obj.Parent and obj.Parent.Name:lower() or ""
-            if name:find("generator") or name:find("gen") or parentName:find("generator") or parentName:find("gen") then
-                if obj:FindFirstChildOfClass("ProximityPrompt") or obj.Parent:FindFirstChildOfClass("ProximityPrompt") then
-                    table.insert(generators, obj)
-                end
-            end
-        end
-    end
-    for _, model in ipairs(workspace:GetDescendants()) do
-        if model:IsA("Model") then
-            local name = model.Name:lower()
-            if name:find("generator") or name:find("gen") then
-                for _, part in ipairs(model:GetDescendants()) do
-                    if part:IsA("BasePart") and part:FindFirstChildOfClass("ProximityPrompt") then
-                        table.insert(generators, model)
-                        break
-                    end
-                end
-            end
-        end
-    end
-    return generators
-end
-
-local function fireProximityPrompt(obj)
-    local prompt = obj:FindFirstChildOfClass("ProximityPrompt")
-    if not prompt and obj.Parent then
-        prompt = obj.Parent:FindFirstChildOfClass("ProximityPrompt")
-    end
-    if not prompt and obj.Parent and obj.Parent.Parent then
-        prompt = obj.Parent.Parent:FindFirstChildOfClass("ProximityPrompt")
-    end
-    if prompt then
-        if prompt.RequiresLineOfSight then
-            prompt.RequiresLineOfSight = false
-        end
-        prompt.HoldDuration = Variables.FixTime
-        fireproximityprompt(prompt)
-    end
-end
-
-local function findNearestKiller()
+local function GetNearestPlayer(maxDistance, excludeTeam)
     local nearest = nil
-    local nearestDist = math.huge
+    local nearestDist = maxDistance or math.huge
+    local myRoot = RootPart
+
+    if not myRoot then return nil end
+
     for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and getCharacter(plr) then
-            local char = getCharacter(plr)
-            local isKiller = false
-            for _, tool in ipairs(char:GetChildren()) do
-                if tool:IsA("Tool") and (tool.Name:lower():find("kill") or tool.Name:lower():find("weapon") or tool.Name:lower():find("sword") or tool.Name:lower():find("axe") or tool.Name:lower():find("knife") or tool.Name:lower():find("slasher")) then
-                    isKiller = true
-                    break
-                end
-            end
-            local backpack = plr:FindFirstChild("Backpack")
-            if not isKiller and backpack then
-                for _, tool in ipairs(backpack:GetChildren()) do
-                    if tool:IsA("Tool") and (tool.Name:lower():find("kill") or tool.Name:lower():find("weapon") or tool.Name:lower():find("sword") or tool.Name:lower():find("axe") or tool.Name:lower():find("knife") or tool.Name:lower():find("slasher")) then
-                        isKiller = true
-                        break
-                    end
-                end
-            end
-            if not isKiller then
-                if plr.TeamColor == BrickColor.new("Really red") or plr.TeamColor == BrickColor.new("Bright red") then
-                    isKiller = true
-                end
-            end
-            if isKiller then
-                local myHRP = getHRP(LocalPlayer)
-                local theirHRP = getHRP(plr)
-                if myHRP and theirHRP then
-                    local dist = (myHRP.Position - theirHRP.Position).Magnitude
-                    if dist < nearestDist and dist <= Variables.AimbotRange then
-                        nearestDist = dist
-                        nearest = plr
-                    end
-                end
-            end
-        end
-    end
-    return nearest
-end
-
-local function findNearestPlayer()
-    local nearest = nil
-    local nearestDist = math.huge
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and getCharacter(plr) then
-            local char = getCharacter(plr)
-            local isKiller = false
-            for _, tool in ipairs(char:GetChildren()) do
-                if tool:IsA("Tool") and (tool.Name:lower():find("kill") or tool.Name:lower():find("weapon") or tool.Name:lower():find("sword") or tool.Name:lower():find("axe") or tool.Name:lower():find("knife") or tool.Name:lower():find("slasher")) then
-                    isKiller = true
-                    break
-                end
-            end
-            local backpack = plr:FindFirstChild("Backpack")
-            if not isKiller and backpack then
-                for _, tool in ipairs(backpack:GetChildren()) do
-                    if tool:IsA("Tool") and (tool.Name:lower():find("kill") or tool.Name:lower():find("weapon") or tool.Name:lower():find("sword") or tool.Name:lower():find("axe") or tool.Name:lower():find("knife") or tool.Name:lower():find("slasher")) then
-                        isKiller = true
-                        break
-                    end
-                end
-            end
-            if isKiller then
-                if plr.TeamColor == BrickColor.new("Really red") or plr.TeamColor == BrickColor.new("Bright red") then
-                    isKiller = true
-                else
-                    isKiller = false
-                end
-            end
-            if not isKiller then
-                local myHRP = getHRP(LocalPlayer)
-                local theirHRP = getHRP(plr)
-                if myHRP and theirHRP then
-                    local dist = (myHRP.Position - theirHRP.Position).Magnitude
-                    if dist < nearestDist and dist <= Variables.AimbotRange then
-                        nearestDist = dist
-                        nearest = plr
-                    end
-                end
-            end
-        end
-    end
-    return nearest
-end
-
-local function createNotificationGUI(name)
-    local existing = game:GetService("CoreGui"):FindFirstChild("SkiddedHub_Notification_" .. name)
-    if existing then
-        existing:Destroy()
-    end
-    local sg = Instance.new("ScreenGui")
-    sg.Name = "SkiddedHub_Notification_" .. name
-    sg.Parent = game:GetService("CoreGui")
-    sg.ResetOnSpawn = false
-    sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    local frame = Instance.new("Frame")
-    frame.Name = "MainFrame"
-    frame.Size = UDim2.new(0, 200, 0, 50)
-    frame.Position = UDim2.new(0.5, -100, 0.15, 0)
-    frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    frame.BorderSizePixel = 0
-    frame.BackgroundTransparency = 0.3
-    frame.Parent = sg
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 8)
-    corner.Parent = frame
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = name == "Player aimbot" and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(255, 60, 60)
-    stroke.Thickness = 2
-    stroke.Parent = frame
-    local label = Instance.new("TextLabel")
-    label.Name = "Title"
-    label.Size = UDim2.new(1, 0, 1, 0)
-    label.BackgroundTransparency = 1
-    label.Text = name
-    label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.Font = Enum.Font.GothamBold
-    label.TextSize = 18
-    label.Parent = frame
-    local drag = Instance.new("UIDragDetector")
-    drag.Parent = frame
-    task.spawn(function()
-        local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out)
-        local tween = TweenService:Create(frame, tweenInfo, {Size = UDim2.new(0, 200, 0, 50)})
-        frame.Size = UDim2.new(0, 0, 0, 50)
-        tween:Play()
-    end)
-    return sg
-end
-
-local function removeNotificationGUI(name)
-    local existing = game:GetService("CoreGui"):FindFirstChild("SkiddedHub_Notification_" .. name)
-    if existing then
-        existing:Destroy()
-    end
-end
-
-local function startPlayerAimbot()
-    if Variables.PlayerAimbotConnection then
-        Variables.PlayerAimbotConnection:Disconnect()
-    end
-    createNotificationGUI("Player aimbot")
-    Variables.PlayerAimbotConnection = RunService.RenderStepped:Connect(function()
-        if not Variables.PlayerAimbot then
-            Variables.PlayerAimbotConnection:Disconnect()
-            Variables.PlayerAimbotConnection = nil
-            removeNotificationGUI("Player aimbot")
-            return
-        end
-        local target = findNearestPlayer()
-        if target then
-            local myHRP = getHRP(LocalPlayer)
-            local theirHRP = getHRP(target)
-            if myHRP and theirHRP then
-                local humanoid = getHumanoid(LocalPlayer)
-                if humanoid then
-                    humanoid.AutoRotate = false
-                end
-                local direction = (theirHRP.Position - myHRP.Position).Unit
-                direction = Vector3.new(direction.X, 0, direction.Z)
-                if direction.Magnitude > 0 then
-                    local lookAt = CFrame.new(myHRP.Position, myHRP.Position + direction)
-                    local gyro = myHRP:FindFirstChildOfClass("BodyGyro")
-                    if not gyro then
-                        gyro = Instance.new("BodyGyro")
-                        gyro.MaxTorque = Vector3.new(400000, 400000, 400000)
-                        gyro.P = 30000
-                        gyro.D = 1000
-                        gyro.Name = "SkiddedHub_AimbotGyro"
-                        gyro.Parent = myHRP
-                    end
-                    gyro.CFrame = lookAt
-                end
-            end
-        else
-            local myHRP = getHRP(LocalPlayer)
-            if myHRP then
-                local gyro = myHRP:FindFirstChild("SkiddedHub_AimbotGyro")
-                if gyro then
-                    gyro:Destroy()
-                end
-                local humanoid = getHumanoid(LocalPlayer)
-                if humanoid then
-                    humanoid.AutoRotate = true
-                end
-            end
-        end
-    end)
-end
-
-local function stopPlayerAimbot()
-    if Variables.PlayerAimbotConnection then
-        Variables.PlayerAimbotConnection:Disconnect()
-        Variables.PlayerAimbotConnection = nil
-    end
-    removeNotificationGUI("Player aimbot")
-    local myHRP = getHRP(LocalPlayer)
-    if myHRP then
-        local gyro = myHRP:FindFirstChild("SkiddedHub_AimbotGyro")
-        if gyro then
-            gyro:Destroy()
-        end
-    end
-    local humanoid = getHumanoid(LocalPlayer)
-    if humanoid then
-        humanoid.AutoRotate = true
-    end
-end
-
-local function startKillerAimbot()
-    if Variables.KillerAimbotConnection then
-        Variables.KillerAimbotConnection:Disconnect()
-    end
-    createNotificationGUI("Killer aimbot")
-    Variables.KillerAimbotConnection = RunService.RenderStepped:Connect(function()
-        if not Variables.KillerAimbot then
-            Variables.KillerAimbotConnection:Disconnect()
-            Variables.KillerAimbotConnection = nil
-            removeNotificationGUI("Killer aimbot")
-            return
-        end
-        local target = findNearestKiller()
-        if target then
-            local myHRP = getHRP(LocalPlayer)
-            local theirHRP = getHRP(target)
-            if myHRP and theirHRP then
-                local humanoid = getHumanoid(LocalPlayer)
-                if humanoid then
-                    humanoid.AutoRotate = false
-                end
-                local direction = (theirHRP.Position - myHRP.Position).Unit
-                direction = Vector3.new(direction.X, 0, direction.Z)
-                if direction.Magnitude > 0 then
-                    local lookAt = CFrame.new(myHRP.Position, myHRP.Position + direction)
-                    local gyro = myHRP:FindFirstChildOfClass("BodyGyro")
-                    if not gyro then
-                        gyro = Instance.new("BodyGyro")
-                        gyro.MaxTorque = Vector3.new(400000, 400000, 400000)
-                        gyro.P = 30000
-                        gyro.D = 1000
-                        gyro.Name = "SkiddedHub_AimbotGyro"
-                        gyro.Parent = myHRP
-                    end
-                    gyro.CFrame = lookAt
-                end
-            end
-        else
-            local myHRP = getHRP(LocalPlayer)
-            if myHRP then
-                local gyro = myHRP:FindFirstChild("SkiddedHub_AimbotGyro")
-                if gyro then
-                    gyro:Destroy()
-                end
-                local humanoid = getHumanoid(LocalPlayer)
-                if humanoid then
-                    humanoid.AutoRotate = true
-                end
-            end
-        end
-    end)
-end
-
-local function stopKillerAimbot()
-    if Variables.KillerAimbotConnection then
-        Variables.KillerAimbotConnection:Disconnect()
-        Variables.KillerAimbotConnection = nil
-    end
-    removeNotificationGUI("Killer aimbot")
-    local myHRP = getHRP(LocalPlayer)
-    if myHRP then
-        local gyro = myHRP:FindFirstChild("SkiddedHub_AimbotGyro")
-        if gyro then
-            gyro:Destroy()
-        end
-    end
-    local humanoid = getHumanoid(LocalPlayer)
-    if humanoid then
-        humanoid.AutoRotate = true
-    end
-end
-
-local function startAutoFix()
-    if Variables.GeneratorConnection then
-        Variables.GeneratorConnection:Disconnect()
-    end
-    Variables.GeneratorConnection = RunService.Heartbeat:Connect(function()
-        if not Variables.AutoFixEnabled then
-            return
-        end
-        local gens = findNearbyGenerators()
-        local myHRP = getHRP(LocalPlayer)
-        if not myHRP then return end
-        for _, gen in ipairs(gens) do
-            local genPart = gen
-            if gen:IsA("Model") then
-                for _, part in ipairs(gen:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        genPart = part
-                        break
-                    end
-                end
-            end
-            if genPart and genPart:IsA("BasePart") then
-                local dist = (myHRP.Position - genPart.Position).Magnitude
-                if dist <= 15 then
-                    if gen:IsA("Model") then
-                        for _, desc in ipairs(gen:GetDescendants()) do
-                            if desc:FindFirstChildOfClass("ProximityPrompt") then
-                                fireProximityPrompt(desc)
-                                break
-                            end
+        if plr ~= LocalPlayer then
+            local char = GetCharacterFromPlayer(plr)
+            local root = GetRootFromCharacter(char)
+            local hum = GetHumanoidFromCharacter(char)
+            if root and hum and hum.Health > 0 then
+                local dist = (myRoot.Position - root.Position).Magnitude
+                if dist < nearestDist then
+                    if excludeTeam then
+                        if plr.Team ~= LocalPlayer.Team then
+                            nearestDist = dist
+                            nearest = plr
                         end
                     else
-                        fireProximityPrompt(gen)
-                    end
-                    break
-                end
-            end
-        end
-    end)
-end
-
-local function stopAutoFix()
-    if Variables.GeneratorConnection then
-        Variables.GeneratorConnection:Disconnect()
-        Variables.GeneratorConnection = nil
-    end
-end
-
-local function startInfiniteStamina()
-    if Variables.StaminaConnection then
-        Variables.StaminaConnection:Disconnect()
-    end
-    Variables.StaminaConnection = RunService.RenderStepped:Connect(function()
-        if not Variables.InfiniteStamina then
-            return
-        end
-        local char = getCharacter(LocalPlayer)
-        if char then
-            for _, child in ipairs(char:GetDescendants()) do
-                local name = child.Name:lower()
-                if child:IsA("NumberValue") or child:IsA("IntValue") then
-                    if name:find("stamina") or name:find("energy") or name:find("sprint") or name:find("endurance") or name:find("fatigue") then
-                        child.Value = child:IsA("IntValue") and 99999 or 100
-                    end
-                end
-                if child:IsA("DoubleConstrainedValue") then
-                    if name:find("stamina") or name:find("energy") or name:find("sprint") or name:find("endurance") then
-                        child.Value = child.MaxValue
+                        nearestDist = dist
+                        nearest = plr
                     end
                 end
             end
-            local humanoid = getHumanoid(LocalPlayer)
-            if humanoid then
-                local staminaAttr = humanoid:GetAttribute("Stamina")
-                if staminaAttr ~= nil then
-                    humanoid:SetAttribute("Stamina", 100)
-                end
-                local energyAttr = humanoid:GetAttribute("Energy")
-                if energyAttr ~= nil then
-                    humanoid:SetAttribute("Energy", 100)
+        end
+    end
+    return nearest, nearestDist
+end
+
+local function GetKillerPlayer()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            local team = plr.Team
+            if team then
+                local teamName = team.Name:lower()
+                if teamName:find("killer") or teamName:find("slasher") or teamName:find("murderer") then
+                    local char = GetCharacterFromPlayer(plr)
+                    local root = GetRootFromCharacter(char)
+                    local hum = GetHumanoidFromCharacter(char)
+                    if root and hum and hum.Health > 0 then
+                        return plr
+                    end
                 end
             end
         end
-    end)
+    end
+    return nil
 end
 
-local function stopInfiniteStamina()
-    if Variables.StaminaConnection then
-        Variables.StaminaConnection:Disconnect()
-        Variables.StaminaConnection = nil
+local function LookAtTarget(targetRoot)
+    if not RootPart or not targetRoot then return end
+    local direction = (targetRoot.Position - RootPart.Position)
+    direction = Vector3.new(direction.X, 0, direction.Z).Unit
+    local lookCFrame = CFrame.lookAt(RootPart.Position, RootPart.Position + direction)
+    RootPart.CFrame = lookCFrame
+end
+
+local function CreateESPLabel(part, name, color)
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "ESP_Label"
+    billboard.AlwaysOnTop = true
+    billboard.Size = UDim2.new(0, 100, 0, 40)
+    billboard.StudsOffset = Vector3.new(0, 3, 0)
+    billboard.Adornee = part
+
+    local label = Instance.new("TextLabel")
+    label.BackgroundTransparency = 1
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.Text = name
+    label.TextColor3 = color or Color3.fromRGB(255, 0, 0)
+    label.TextStrokeTransparency = 0
+    label.TextScaled = true
+    label.Font = Enum.Font.GothamBold
+    label.Parent = billboard
+
+    local box = Instance.new("SelectionBox")
+    box.Color3 = color or Color3.fromRGB(255, 0, 0)
+    box.LineThickness = 0.05
+    box.SurfaceTransparency = 0.8
+    box.SurfaceColor3 = color or Color3.fromRGB(255, 0, 0)
+
+    billboard.Parent = part
+    return billboard, box
+end
+
+local function RemoveESP(player)
+    if ESPObjects[player] then
+        for _, obj in ipairs(ESPObjects[player]) do
+            if obj and obj.Parent then
+                obj:Destroy()
+            end
+        end
+        ESPObjects[player] = nil
     end
 end
 
-Players.PlayerAdded:Connect(function(plr)
-    plr.CharacterAdded:Connect(function(char)
-        task.wait(0.5)
-        if Variables.KillerESP or Variables.PlayerESP then
-            updateESP()
+local function ApplyPlayerESP(player)
+    RemoveESP(player)
+    local char = GetCharacterFromPlayer(player)
+    if not char then return end
+    local root = GetRootFromCharacter(char)
+    local head = char:FindFirstChild("Head")
+    if not root then return end
+
+    local isKiller = false
+    if player.Team then
+        local tn = player.Team.Name:lower()
+        if tn:find("killer") or tn:find("slasher") or tn:find("murderer") then
+            isKiller = true
+        end
+    end
+
+    local color = isKiller and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(50, 200, 255)
+    local displayName = "[" .. (isKiller and "KILLER" or "SURVIVOR") .. "] " .. player.Name
+
+    local board, box = CreateESPLabel(root, displayName, color)
+    box.Adornee = char
+    box.Parent = char
+
+    ESPObjects[player] = {board, box}
+end
+
+local function ApplyKillerESP(player)
+    RemoveESP(player)
+    local char = GetCharacterFromPlayer(player)
+    if not char then return end
+    local root = GetRootFromCharacter(char)
+    if not root then return end
+
+    local color = Color3.fromRGB(255, 0, 0)
+    local displayName = "[KILLER] " .. player.Name
+
+    local board, box = CreateESPLabel(root, displayName, color)
+    box.Adornee = char
+    box.Parent = char
+
+    ESPObjects[player] = {board, box}
+end
+
+local function RefreshESP()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            local isKiller = false
+            if plr.Team then
+                local tn = plr.Team.Name:lower()
+                if tn:find("killer") or tn:find("slasher") or tn:find("murderer") then
+                    isKiller = true
+                end
+            end
+
+            if Settings.ESPPlayers and not isKiller then
+                ApplyPlayerESP(plr)
+            elseif Settings.ESPKiller and isKiller then
+                ApplyKillerESP(plr)
+            elseif not Settings.ESPPlayers and not Settings.ESPKiller then
+                RemoveESP(plr)
+            elseif Settings.ESPPlayers and isKiller and not Settings.ESPKiller then
+                RemoveESP(plr)
+            elseif not Settings.ESPPlayers and not isKiller then
+                RemoveESP(plr)
+            end
+        end
+    end
+end
+
+local function ClearAllESP()
+    for plr, _ in pairs(ESPObjects) do
+        RemoveESP(plr)
+    end
+end
+
+local function CreatePlayerAimbotGui()
+    if PlayerAimbotGui then PlayerAimbotGui:Destroy() end
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "Player aimbot"
+    screenGui.ResetOnSpawn = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 220, 0, 60)
+    frame.Position = UDim2.new(0.5, -110, 0.05, 0)
+    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    frame.BorderSizePixel = 0
+    frame.Parent = screenGui
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = frame
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(80, 80, 255)
+    stroke.Thickness = 2
+    stroke.Parent = frame
+
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 1, 0)
+    btn.BackgroundTransparency = 1
+    btn.Text = "Player aimbot  [CLICK ME]"
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextScaled = true
+    btn.Font = Enum.Font.GothamBold
+    btn.Parent = frame
+
+    local locking = false
+    local lockConn = nil
+
+    btn.MouseButton1Click:Connect(function()
+        locking = not locking
+        if locking then
+            btn.Text = "Player aimbot  [LOCKING ON]"
+            btn.TextColor3 = Color3.fromRGB(80, 255, 80)
+            stroke.Color = Color3.fromRGB(80, 255, 80)
+            lockConn = RunService.Heartbeat:Connect(function()
+                if not locking then return end
+                Character = LocalPlayer.Character
+                if not Character then return end
+                RootPart = Character:FindFirstChild("HumanoidRootPart")
+                if not RootPart then return end
+                local nearest, dist = GetNearestPlayer(100, false)
+                if nearest then
+                    local targetChar = GetCharacterFromPlayer(nearest)
+                    local targetRoot = GetRootFromCharacter(targetChar)
+                    if targetRoot then
+                        LookAtTarget(targetRoot)
+                    end
+                end
+            end)
+        else
+            btn.Text = "Player aimbot  [CLICK ME]"
+            btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            stroke.Color = Color3.fromRGB(80, 80, 255)
+            if lockConn then lockConn:Disconnect() lockConn = nil end
         end
     end)
-    task.wait(0.5)
-    if Variables.KillerESP or Variables.PlayerESP then
-        updateESP()
-    end
-end)
 
-Players.PlayerRemoving:Connect(function(plr)
-    removeESP(plr)
-end)
+    screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    PlayerAimbotGui = screenGui
+end
 
-local GeneratorTab = Window:MakeTab({
-    Name = "Generator",
-    Icon = "rbxassetid://7733968881",
-    PremiumOnly = false
-})
+local function CreateKillerAimbotGui()
+    if KillerAimbotGui then KillerAimbotGui:Destroy() end
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "Killer aimbot"
+    screenGui.ResetOnSpawn = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-local GenSection = GeneratorTab:AddSection({
-    Name = "Auto Fix Generator"
-})
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 220, 0, 60)
+    frame.Position = UDim2.new(0.5, -110, 0.13, 0)
+    frame.BackgroundColor3 = Color3.fromRGB(30, 10, 10)
+    frame.BorderSizePixel = 0
+    frame.Parent = screenGui
 
-local AutoFixToggle = GeneratorTab:AddToggle({
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = frame
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(255, 50, 50)
+    stroke.Thickness = 2
+    stroke.Parent = frame
+
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 1, 0)
+    btn.BackgroundTransparency = 1
+    btn.Text = "Killer aimbot  [CLICK ME]"
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextScaled = true
+    btn.Font = Enum.Font.GothamBold
+    btn.Parent = frame
+
+    local locking = false
+    local lockConn = nil
+
+    btn.MouseButton1Click:Connect(function()
+        locking = not locking
+        if locking then
+            btn.Text = "Killer aimbot  [LOCKING ON]"
+            btn.TextColor3 = Color3.fromRGB(255, 80, 80)
+            stroke.Color = Color3.fromRGB(255, 80, 80)
+            lockConn = RunService.Heartbeat:Connect(function()
+                if not locking then return end
+                Character = LocalPlayer.Character
+                if not Character then return end
+                RootPart = Character:FindFirstChild("HumanoidRootPart")
+                if not RootPart then return end
+                local killer = GetKillerPlayer()
+                if killer then
+                    local targetChar = GetCharacterFromPlayer(killer)
+                    local targetRoot = GetRootFromCharacter(targetChar)
+                    if targetRoot then
+                        local dist = (RootPart.Position - targetRoot.Position).Magnitude
+                        if dist <= 80 then
+                            LookAtTarget(targetRoot)
+                        end
+                    end
+                end
+            end)
+        else
+            btn.Text = "Killer aimbot  [CLICK ME]"
+            btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            stroke.Color = Color3.fromRGB(255, 50, 50)
+            if lockConn then lockConn:Disconnect() lockConn = nil end
+        end
+    end)
+
+    screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    KillerAimbotGui = screenGui
+end
+
+local GeneratorSection = GeneratorTab:AddSection({Name = "Generator Automation"})
+
+GeneratorTab:AddToggle({
     Name = "Auto Fix Generator",
     Default = false,
-    Callback = function(Value)
-        Variables.AutoFixEnabled = Value
-        if Value then
-            startAutoFix()
+    Callback = function(val)
+        Settings.AutoFixGen = val
+        if val then
             OrionLib:MakeNotification({
-                Name = "Generator",
-                Content = "Auto Fix Generator ENABLED",
-                Time = 3
-            })
-        else
-            stopAutoFix()
-            OrionLib:MakeNotification({
-                Name = "Generator",
-                Content = "Auto Fix Generator DISABLED",
+                Name = "Auto Fix Generator",
+                Content = "Auto Fix Generator enabled! Fix time: " .. Settings.FixTime .. "s",
                 Time = 3
             })
         end
     end
 })
 
-local FixTimeSlider = GeneratorTab:AddSlider({
-    Name = "Fix Time",
-    Min = 1,
+GeneratorTab:AddSlider({
+    Name = "Generator Fix Time",
+    Min = 0.5,
     Max = 6,
-    Default = 3,
-    Color = Color3.fromRGB(0, 180, 255),
+    Default = 1,
+    Color = Color3.fromRGB(100, 150, 255),
     Increment = 0.5,
     ValueName = "seconds",
-    Callback = function(Value)
-        Variables.FixTime = Value
+    Callback = function(val)
+        Settings.FixTime = val
     end
 })
 
-local VisualsTab = Window:MakeTab({
-    Name = "Visuals",
-    Icon = "rbxassetid://7734056608",
-    PremiumOnly = false
-})
-
-local ESPSection = VisualsTab:AddSection({
-    Name = "ESP Settings"
-})
-
-local KillerESPToggle = VisualsTab:AddToggle({
-    Name = "Killer ESP",
-    Default = false,
-    Callback = function(Value)
-        Variables.KillerESP = Value
-        if Value then
-            updateESP()
+GeneratorTab:AddButton({
+    Name = "Fix Nearest Generator Now",
+    Callback = function()
+        local workspace = game:GetService("Workspace")
+        local found = false
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj.Name:lower():find("generator") or obj.Name:lower():find("gen") then
+                local rootPart = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if rootPart and obj:IsA("BasePart") then
+                    local dist = (rootPart.Position - obj.Position).Magnitude
+                    if dist < 30 then
+                        task.spawn(function()
+                            task.wait(Settings.FixTime)
+                            local event = game:GetService("ReplicatedStorage"):FindFirstChild("FixGenerator", true)
+                            if event and event:IsA("RemoteEvent") then
+                                event:FireServer(obj)
+                            elseif event and event:IsA("RemoteFunction") then
+                                event:InvokeServer(obj)
+                            end
+                        end)
+                        found = true
+                        OrionLib:MakeNotification({
+                            Name = "Generator",
+                            Content = "Fixing generator in " .. Settings.FixTime .. " seconds!",
+                            Time = 3
+                        })
+                        break
+                    end
+                end
+            end
+        end
+        if not found then
             OrionLib:MakeNotification({
-                Name = "ESP",
-                Content = "Killer ESP ENABLED",
-                Time = 3
-            })
-        else
-            updateESP()
-            OrionLib:MakeNotification({
-                Name = "ESP",
-                Content = "Killer ESP DISABLED",
+                Name = "Generator",
+                Content = "No nearby generator found within 30 studs.",
                 Time = 3
             })
         end
     end
 })
 
-local PlayerESPToggle = VisualsTab:AddToggle({
+GeneratorTab:AddButton({
+    Name = "Teleport To Nearest Generator",
+    Callback = function()
+        local workspace = game:GetService("Workspace")
+        local rootPart = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not rootPart then return end
+        local nearest = nil
+        local nearestDist = math.huge
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj.Name:lower():find("generator") or obj.Name:lower():find("gen") then
+                if obj:IsA("BasePart") then
+                    local dist = (rootPart.Position - obj.Position).Magnitude
+                    if dist < nearestDist then
+                        nearestDist = dist
+                        nearest = obj
+                    end
+                end
+            end
+        end
+        if nearest then
+            rootPart.CFrame = CFrame.new(nearest.Position + Vector3.new(0, 3, 0))
+            OrionLib:MakeNotification({Name = "Teleport", Content = "Teleported to generator!", Time = 2})
+        else
+            OrionLib:MakeNotification({Name = "Teleport", Content = "No generator found!", Time = 2})
+        end
+    end
+})
+
+local ESPSection = ESPTab:AddSection({Name = "ESP Settings"})
+
+ESPTab:AddToggle({
+    Name = "ESP Killer",
+    Default = false,
+    Callback = function(val)
+        Settings.ESPKiller = val
+        if not val then
+            for _, plr in ipairs(Players:GetPlayers()) do
+                if plr ~= LocalPlayer then
+                    local isKiller = false
+                    if plr.Team then
+                        local tn = plr.Team.Name:lower()
+                        if tn:find("killer") or tn:find("slasher") or tn:find("murderer") then
+                            isKiller = true
+                        end
+                    end
+                    if isKiller then RemoveESP(plr) end
+                end
+            end
+        else
+            RefreshESP()
+        end
+        OrionLib:MakeNotification({
+            Name = "ESP Killer",
+            Content = val and "Killer ESP enabled!" or "Killer ESP disabled!",
+            Time = 2
+        })
+    end
+})
+
+ESPTab:AddToggle({
     Name = "Player ESP",
     Default = false,
-    Callback = function(Value)
-        Variables.PlayerESP = Value
-        if Value then
-            updateESP()
-            OrionLib:MakeNotification({
-                Name = "ESP",
-                Content = "Player ESP ENABLED",
-                Time = 3
-            })
-        else
-            updateESP()
-            OrionLib:MakeNotification({
-                Name = "ESP",
-                Content = "Player ESP DISABLED",
-                Time = 3
-            })
-        end
-    end
-})
-
-local CharacterTab = Window:MakeTab({
-    Name = "Character",
-    Icon = "rbxassetid://7733977894",
-    PremiumOnly = false
-})
-
-local CharSection = CharacterTab:AddSection({
-    Name = "Character Mods"
-})
-
-local StaminaToggle = CharacterTab:AddToggle({
-    Name = "Infinite Stamina",
-    Default = false,
-    Callback = function(Value)
-        Variables.InfiniteStamina = Value
-        if Value then
-            startInfiniteStamina()
-            OrionLib:MakeNotification({
-                Name = "Stamina",
-                Content = "Infinite Stamina ENABLED",
-                Time = 3
-            })
-        else
-            stopInfiniteStamina()
-            OrionLib:MakeNotification({
-                Name = "Stamina",
-                Content = "Infinite Stamina DISABLED",
-                Time = 3
-            })
-        end
-    end
-})
-
-local AimbotTab = Window:MakeTab({
-    Name = "Aimbot",
-    Icon = "rbxassetid://7734043491",
-    PremiumOnly = false
-})
-
-local AimbotSection = AimbotTab:AddSection({
-    Name = "Aimbot Settings"
-})
-
-local PlayerAimbotToggle = AimbotTab:AddToggle({
-    Name = "Player Aimbot (use as Killer)",
-    Default = false,
-    Callback = function(Value)
-        Variables.PlayerAimbot = Value
-        if Value then
-            if Variables.KillerAimbot then
-                Variables.KillerAimbot = false
-                stopKillerAimbot()
-                KillerAimbotToggle:Set(false)
+    Callback = function(val)
+        Settings.ESPPlayers = val
+        if not val then
+            for _, plr in ipairs(Players:GetPlayers()) do
+                if plr ~= LocalPlayer then
+                    local isKiller = false
+                    if plr.Team then
+                        local tn = plr.Team.Name:lower()
+                        if tn:find("killer") or tn:find("slasher") or tn:find("murderer") then
+                            isKiller = true
+                        end
+                    end
+                    if not isKiller then RemoveESP(plr) end
+                end
             end
-            startPlayerAimbot()
-            OrionLib:MakeNotification({
-                Name = "Aimbot",
-                Content = "Player Aimbot ENABLED - Locking onto nearby survivors!",
-                Time = 4
-            })
         else
-            stopPlayerAimbot()
-            OrionLib:MakeNotification({
-                Name = "Aimbot",
-                Content = "Player Aimbot DISABLED",
-                Time = 3
-            })
+            RefreshESP()
         end
+        OrionLib:MakeNotification({
+            Name = "Player ESP",
+            Content = val and "Player ESP enabled!" or "Player ESP disabled!",
+            Time = 2
+        })
     end
 })
 
-local KillerAimbotToggle = AimbotTab:AddToggle({
-    Name = "Killer Aimbot (use as Survivor)",
-    Default = false,
-    Callback = function(Value)
-        Variables.KillerAimbot = Value
-        if Value then
-            if Variables.PlayerAimbot then
-                Variables.PlayerAimbot = false
-                stopPlayerAimbot()
-                PlayerAimbotToggle:Set(false)
-            end
-            startKillerAimbot()
-            OrionLib:MakeNotification({
-                Name = "Aimbot",
-                Content = "Killer Aimbot ENABLED - Locking onto nearby killer!",
-                Time = 4
-            })
-        else
-            stopKillerAimbot()
-            OrionLib:MakeNotification({
-                Name = "Aimbot",
-                Content = "Killer Aimbot DISABLED",
-                Time = 3
-            })
-        end
-    end
-})
-
-local AimbotRangeSlider = AimbotTab:AddSlider({
-    Name = "Aimbot Range",
-    Min = 20,
-    Max = 500,
-    Default = 100,
-    Color = Color3.fromRGB(255, 100, 100),
-    Increment = 10,
-    ValueName = "studs",
-    Callback = function(Value)
-        Variables.AimbotRange = Value
-    end
-})
-
-AimbotTab:AddParagraph("Aimbot Info", "Player Aimbot: Use when you are the KILLER. Your CHARACTER will lock onto nearby survivors.\n\nKiller Aimbot: Use when you are a SURVIVOR. Your CHARACTER will lock onto the killer when they are nearby.\n\nOnly one aimbot can be active at a time.")
-
-local MiscTab = Window:MakeTab({
-    Name = "Misc",
-    Icon = "rbxassetid://7733965119",
-    PremiumOnly = false
-})
-
-local MiscSection = MiscTab:AddSection({
-    Name = "Other"
-})
-
-MiscTab:AddButton({
+ESPTab:AddButton({
     Name = "Refresh ESP",
     Callback = function()
-        updateESP()
+        ClearAllESP()
+        RefreshESP()
+        OrionLib:MakeNotification({Name = "ESP", Content = "ESP refreshed!", Time = 2})
+    end
+})
+
+local AimbotPlayerSection = AimbotTab:AddSection({Name = "Player Aimbot (Killer Role)"})
+
+AimbotTab:AddToggle({
+    Name = "Enable Player Aimbot GUI",
+    Default = false,
+    Callback = function(val)
+        Settings.PlayerAimbot = val
+        if val then
+            CreatePlayerAimbotGui()
+            OrionLib:MakeNotification({
+                Name = "Player Aimbot",
+                Content = "Player Aimbot GUI spawned! Use as killer to lock onto survivors.",
+                Time = 4
+            })
+        else
+            if PlayerAimbotGui then
+                PlayerAimbotGui:Destroy()
+                PlayerAimbotGui = nil
+            end
+        end
+    end
+})
+
+local AimbotKillerSection = AimbotTab:AddSection({Name = "Killer Aimbot (Survivor Role)"})
+
+AimbotTab:AddToggle({
+    Name = "Enable Killer Aimbot GUI",
+    Default = false,
+    Callback = function(val)
+        Settings.KillerAimbot = val
+        if val then
+            CreateKillerAimbotGui()
+            OrionLib:MakeNotification({
+                Name = "Killer Aimbot",
+                Content = "Killer Aimbot GUI spawned! Use as survivor to lock onto the killer.",
+                Time = 4
+            })
+        else
+            if KillerAimbotGui then
+                KillerAimbotGui:Destroy()
+                KillerAimbotGui = nil
+            end
+        end
+    end
+})
+
+AimbotTab:AddLabel("Player Aimbot: Click the GUI button to lock your character onto nearby survivors.")
+AimbotTab:AddLabel("Killer Aimbot: Click the GUI button to lock your character toward the killer (if nearby).")
+
+local MovementSection = MovementTab:AddSection({Name = "Stamina & Speed"})
+
+MovementTab:AddToggle({
+    Name = "Infinite Stamina",
+    Default = false,
+    Callback = function(val)
+        Settings.InfiniteStamina = val
         OrionLib:MakeNotification({
-            Name = "ESP",
-            Content = "ESP Refreshed!",
+            Name = "Infinite Stamina",
+            Content = val and "Infinite Stamina enabled!" or "Infinite Stamina disabled!",
+            Time = 2
+        })
+    end
+})
+
+MovementTab:AddToggle({
+    Name = "Speed Boost",
+    Default = false,
+    Callback = function(val)
+        Settings.SpeedBoost = val
+        local char = LocalPlayer.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                if val then
+                    hum.WalkSpeed = Settings.SpeedValue
+                else
+                    hum.WalkSpeed = 16
+                end
+            end
+        end
+        OrionLib:MakeNotification({
+            Name = "Speed Boost",
+            Content = val and "Speed Boost enabled!" or "Speed Boost disabled! Speed reset.",
+            Time = 2
+        })
+    end
+})
+
+MovementTab:AddSlider({
+    Name = "Walk Speed",
+    Min = 16,
+    Max = 100,
+    Default = 16,
+    Color = Color3.fromRGB(150, 255, 150),
+    Increment = 1,
+    ValueName = "speed",
+    Callback = function(val)
+        Settings.SpeedValue = val
+        if Settings.SpeedBoost then
+            local char = LocalPlayer.Character
+            if char then
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if hum then hum.WalkSpeed = val end
+            end
+        end
+    end
+})
+
+MovementTab:AddToggle({
+    Name = "No Clip",
+    Default = false,
+    Callback = function(val)
+        Settings.NoClip = val
+        OrionLib:MakeNotification({
+            Name = "No Clip",
+            Content = val and "No Clip enabled!" or "No Clip disabled!",
+            Time = 2
+        })
+    end
+})
+
+MovementTab:AddButton({
+    Name = "Teleport To Lobby/Spawn",
+    Callback = function()
+        local rootPart = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not rootPart then return end
+        local spawn = game.Workspace:FindFirstChild("SpawnLocation") or game.Workspace:FindFirstChildOfClass("SpawnLocation")
+        if spawn then
+            rootPart.CFrame = spawn.CFrame + Vector3.new(0, 5, 0)
+            OrionLib:MakeNotification({Name = "Teleport", Content = "Teleported to spawn!", Time = 2})
+        else
+            rootPart.CFrame = CFrame.new(0, 10, 0)
+            OrionLib:MakeNotification({Name = "Teleport", Content = "Teleported to origin!", Time = 2})
+        end
+    end
+})
+
+local MiscSection = MiscTab:AddSection({Name = "Miscellaneous Features"})
+
+MiscTab:AddToggle({
+    Name = "Auto Block",
+    Default = false,
+    Callback = function(val)
+        Settings.AutoBlock = val
+        OrionLib:MakeNotification({
+            Name = "Auto Block",
+            Content = val and "Auto Block enabled!" or "Auto Block disabled!",
             Time = 2
         })
     end
 })
 
 MiscTab:AddButton({
-    Name = "Destroy UI",
+    Name = "Rejoin Game",
     Callback = function()
-        clearAllESP()
-        stopPlayerAimbot()
-        stopKillerAimbot()
-        stopInfiniteStamina()
-        stopAutoFix()
-        removeNotificationGUI("Player aimbot")
-        removeNotificationGUI("Killer aimbot")
-        if ESPFolder then
-            ESPFolder:Destroy()
-        end
-        OrionLib:Destroy()
+        local TeleportService = game:GetService("TeleportService")
+        TeleportService:Teleport(game.PlaceId, LocalPlayer)
     end
 })
 
-MiscTab:AddParagraph("Credits", "Skidded Hub (Not actually skid ok)\nMade for Forsaken\nAll features included:\n- Auto Fix Generator\n- Killer & Player ESP\n- Infinite Stamina\n- Player Aimbot\n- Killer Aimbot")
+MiscTab:AddButton({
+    Name = "Reset Character",
+    Callback = function()
+        local char = LocalPlayer.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then hum.Health = 0 end
+        end
+    end
+})
+
+MiscTab:AddLabel("Skidded Hub (Not actually skid ok) | Made for Forsaken")
+MiscTab:AddLabel("All features are client-sided. Use responsibly.")
+
+RunService.Heartbeat:Connect(function()
+    Character = LocalPlayer.Character
+    if not Character then return end
+    RootPart = Character:FindFirstChild("HumanoidRootPart")
+    Humanoid = Character:FindFirstChildOfClass("Humanoid")
+
+    if Settings.InfiniteStamina then
+        local staminaModule = game:GetService("ReplicatedStorage"):FindFirstChild("Stamina", true)
+        if staminaModule then
+            if staminaModule:IsA("ModuleScript") then
+                local ok, sm = pcall(require, staminaModule)
+                if ok and sm then
+                    if sm.Stamina ~= nil then sm.Stamina = sm.MaxStamina or 100 end
+                end
+            end
+        end
+        local staminaValue = Character:FindFirstChild("Stamina") or Character:FindFirstChild("StaminaValue")
+        if staminaValue and staminaValue:IsA("NumberValue") then
+            staminaValue.Value = staminaValue:FindFirstChild("Max") and staminaValue:FindFirstChild("Max").Value or 100
+        end
+        local staminaObj = LocalPlayer:FindFirstChild("Stamina") or LocalPlayer:WaitForChild("Stamina", 0.01)
+        if staminaObj and staminaObj:IsA("NumberValue") then
+            staminaObj.Value = 100
+        end
+    end
+
+    if Settings.NoClip and Character then
+        for _, part in ipairs(Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end
+
+    if Settings.SpeedBoost and Humanoid then
+        if Humanoid.WalkSpeed ~= Settings.SpeedValue then
+            Humanoid.WalkSpeed = Settings.SpeedValue
+        end
+    end
+
+    if Settings.AutoFixGen and RootPart then
+        local workspace = game:GetService("Workspace")
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if (obj.Name:lower():find("generator") or obj.Name:lower():find("gen")) and obj:IsA("BasePart") then
+                local dist = (RootPart.Position - obj.Position).Magnitude
+                if dist < 15 then
+                    local fireEvent = game:GetService("ReplicatedStorage"):FindFirstChild("FixGenerator", true)
+                    if fireEvent and fireEvent:IsA("RemoteEvent") then
+                        task.delay(Settings.FixTime, function()
+                            if Settings.AutoFixGen then
+                                pcall(function() fireEvent:FireServer(obj) end)
+                            end
+                        end)
+                    end
+                end
+            end
+        end
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if (Settings.ESPKiller or Settings.ESPPlayers) then
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= LocalPlayer then
+                local char = GetCharacterFromPlayer(plr)
+                local root = GetRootFromCharacter(char)
+                if root then
+                    if not ESPObjects[plr] then
+                        local isKiller = false
+                        if plr.Team then
+                            local tn = plr.Team.Name:lower()
+                            if tn:find("killer") or tn:find("slasher") or tn:find("murderer") then
+                                isKiller = true
+                            end
+                        end
+                        if isKiller and Settings.ESPKiller then
+                            ApplyKillerESP(plr)
+                        elseif not isKiller and Settings.ESPPlayers then
+                            ApplyPlayerESP(plr)
+                        end
+                    end
+                else
+                    RemoveESP(plr)
+                end
+            end
+        end
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(plr)
+    RemoveESP(plr)
+end)
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+    Character = char
+    RootPart = char:WaitForChild("HumanoidRootPart")
+    Humanoid = char:WaitForChild("Humanoid")
+    ClearAllESP()
+    task.wait(1)
+    RefreshESP()
+end)
 
 OrionLib:Init()
-
-OrionLib:MakeNotification({
-    Name = "Skidded Hub",
-    Content = "Loaded! Enjoy the script.",
-    Image = "rbxassetid://7733968881",
-    Time = 5
-})
